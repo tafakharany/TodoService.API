@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TodoService.API;
+using TodoService.API.Dtos;
 using TodoService.API.Models;
 using TodoService.API.persistence;
 
@@ -30,16 +31,16 @@ app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "TodoService
 //TODO :: add logging middleware to actions and exceptions
 //TODO :: replace the InMemoryDatabase with mongo db
 
-
-//FIX :: Replace the todo item with a DTOs
 //FIX :: Add validation to the todo item
 //FIX :: Add a service layer to handle the business logic
 
 //TODO: Add bulk operations to the todo items
 
 //create a todo item
-app.MapPost("/todo", async (TodoItem todoItem, TodoDb db) =>
+app.MapPost("/todo", async (CreateTodoItem todoItemRequest, TodoDb db) =>
 {
+    //explicitly convert the CreateTodoItem to TodoItem
+    var todoItem = (TodoItem)todoItemRequest;
     db.Todos.Add(todoItem);
     await db.SaveChangesAsync();
     return Results.Created($"/todo/{todoItem.Id}", todoItem);
@@ -59,20 +60,25 @@ app.MapGet("/todo/{id}", async (int id, TodoDb db) =>
     {
         return Results.NotFound();
     }
-    return Results.Ok(todoItem);
+    var todoItemDetails = (TodoItemDetails)todoItem;
+    return Results.Ok(todoItemDetails);
 });
 
 //update a todo item
-app.MapPut("/todo/{id}", async (int id, TodoItem todoItem, TodoDb db) =>
+app.MapPut("/todo/{id}", async (int id, UpdateTodoItem todoItemRequest, TodoDb db) =>
 {
-    if (id != todoItem.Id)
+    var todoItem = await db.Todos.FindAsync(id);
+    if (todoItem is null)
     {
-        return Results.BadRequest();
+        return Results.NotFound();
     }
 
-    db.Todos.Update(todoItem);
+    //explicitly convert the UpdateTodoItem to TodoItem
+    var updatedTodoItem = (TodoItem)todoItemRequest;
+    todoItem.Name = updatedTodoItem.Name;
+    todoItem.IsComplete = updatedTodoItem.IsComplete;
     await db.SaveChangesAsync();
-    return Results.Ok(todoItem);
+    return Results.NoContent();
 });
 
 //delete a todo item
